@@ -1,8 +1,8 @@
 package com.gstz.createaddress;
 
+import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
 import java.io.BufferedWriter;
-import java.io.FileOutputStream;
-import java.io.FileWriter;
 import java.io.IOException;
 import java.io.OutputStreamWriter;
 import java.nio.charset.StandardCharsets;
@@ -21,6 +21,8 @@ public class CreateAddress {
   static String workPath;
   static String separator;
   static String lineSeparator;
+  // 创建一个静态的 Gson 实例
+  private static final Gson gson = new GsonBuilder().setPrettyPrinting().create();
 
   static {
     workPath = System.getProperty("user.dir");
@@ -40,6 +42,7 @@ public class CreateAddress {
     // 设置钱包密码
     String password = args[1];
     // 设置保存的目录
+    String walletInfoDir = workPath + separator + "walletinfos.json";
     String mnicAndPassWdDir = workPath + separator + "mnicAndPassWd.properties";
     String addrAndPubKeyDir = workPath + separator + "addrAndPubKey.properties";
     String addrAndPriKeyDir = workPath + separator + "addrAndPriKey.properties";
@@ -61,12 +64,13 @@ public class CreateAddress {
     System.out.println("Root private key: " + rootPrikey);
 
     List<String> mnicAndPassWdInfos = new ArrayList<>();
-    String mnicAndPassInfo = "助记词："+mnemonic + lineSeparator +
-                             "密码："+password + lineSeparator +
-                             "根公钥："+rootPubKey + lineSeparator +
-                             "根私钥："+rootPrikey;
+    String mnicAndPassInfo = "助记词：" + mnemonic + lineSeparator +
+        "密码：" + password + lineSeparator +
+        "根公钥：" + rootPubKey + lineSeparator +
+        "根私钥：" + rootPrikey;
     mnicAndPassWdInfos.add(mnicAndPassInfo);
-    System.out.println("当前批次所有钱包的助记词，密码，根密钥对的公私密钥为：" + lineSeparator + mnicAndPassInfo);
+    System.out.println(
+        "当前批次所有钱包的助记词，密码，根密钥对的公私密钥为：" + lineSeparator + mnicAndPassInfo);
 
     List<String> addrAndPriKeyInfos = new ArrayList<>();
     List<String> addrAndPubKeyInfos = new ArrayList<>();
@@ -75,6 +79,7 @@ public class CreateAddress {
     int[] commonPath = {44 | Bip32ECKeyPair.HARDENED_BIT, 60 | Bip32ECKeyPair.HARDENED_BIT,
         Bip32ECKeyPair.HARDENED_BIT, 0};
 
+    ArrayList<WalletInfo> subWalletInfos = new ArrayList<>();
     try {
       for (int i = 0; i < numberOfWallets; i++) {
         // 构造派生path
@@ -97,10 +102,29 @@ public class CreateAddress {
         addrAndPriKeyInfos.add(priInfo);
         System.out.println(pubInfo);
         System.out.println(priInfo);
+
+        WalletInfo walletInfo = new WalletInfo();
+        walletInfo.setMnemonic(mnemonic);
+        walletInfo.setPassword(password);
+        walletInfo.setPubKey(publicKey);
+        walletInfo.setPrikey(privateKey);
+        subWalletInfos.add(walletInfo);
       }
     } catch (Exception e) {
       e.printStackTrace();
     }
+    // 将钱包信息保存到bean
+    RootWalletInfo rootWalletInfo = new RootWalletInfo();
+    rootWalletInfo.setRootMnemonic(mnemonic);
+    rootWalletInfo.setRootPassword(password);
+    rootWalletInfo.setRootPubKey(rootPubKey);
+    rootWalletInfo.setRootPrikey(rootPrikey);
+    rootWalletInfo.setSubWalletInfos(subWalletInfos);
+    ArrayList<String> jsonStrings = new ArrayList<>();
+    jsonStrings.add(gson.toJson(rootWalletInfo));
+
+    saveToFile(jsonStrings, walletInfoDir);
+    saveToFile(mnicAndPassWdInfos, mnicAndPassWdDir);
     saveToFile(mnicAndPassWdInfos, mnicAndPassWdDir);
     saveToFile(addrAndPubKeyInfos, addrAndPubKeyDir);
     saveToFile(addrAndPriKeyInfos, addrAndPriKeyDir);
@@ -108,7 +132,8 @@ public class CreateAddress {
 
   private static void saveToFile(List<String> data, String fileName) {
     try (BufferedWriter writer = new BufferedWriter(
-        new OutputStreamWriter(Files.newOutputStream(Paths.get(fileName)), StandardCharsets.UTF_8))) {
+        new OutputStreamWriter(Files.newOutputStream(Paths.get(fileName)),
+            StandardCharsets.UTF_8))) {
       for (String line : data) {
         writer.write(line + System.lineSeparator());
       }
