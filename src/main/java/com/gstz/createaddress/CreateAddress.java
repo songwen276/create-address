@@ -89,8 +89,10 @@ public class CreateAddress {
 
         // 派生子密钥
         Bip32ECKeyPair derivedKeyPair = Bip32ECKeyPair.deriveKeyPair(rootKeyPair, path);
-        String publicKey = Numeric.toHexStringNoPrefix(derivedKeyPair.getPublicKey());
-        String privateKey = Numeric.toHexStringNoPrefix(derivedKeyPair.getPrivateKey());
+        String publicKey = addLeadingZeroIfNeeded(
+            Numeric.toHexStringNoPrefix(derivedKeyPair.getPublicKey()), 128);
+        String privateKey = addLeadingZeroIfNeeded(
+            Numeric.toHexStringNoPrefix(derivedKeyPair.getPrivateKey()), 64);
 
         // 根据密钥生成子账号信息
         Credentials credentials = Credentials.create(derivedKeyPair);
@@ -142,6 +144,14 @@ public class CreateAddress {
       e.printStackTrace();
       System.out.println("输出到文件异常：" + fileName);
     }
+  }
+
+  private static String addLeadingZeroIfNeeded(String hexString, int length) {
+    StringBuilder sb = new StringBuilder(hexString);
+    while (sb.length() < length) {
+      sb.insert(0, '0');
+    }
+    return sb.toString();
   }
 
 }
